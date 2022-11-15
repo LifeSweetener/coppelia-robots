@@ -48,4 +48,71 @@
 
 ![dr12_3](https://user-images.githubusercontent.com/80912103/201995928-9653bf32-d8fe-43c7-86e2-12887bdc6f2e.png)
 
-Бампер у робота удалён. У него есть тело ('body') (см. левое меню на скриншоте выше снизу),
+Бампер у робота удалён. У него есть тело ('body') (см. левое меню на скриншоте выше — снизу), левый и правый моторы (`leftJoint_` и `rightJoint_`) и три дистанционных датчика, повёрнутых направо, вперёд и налево — для общей корректной ориентации в пространстве.
+
+**Скрипт** этого робота можно открыть для редактирования и просмотра, нажав на иконку *листа* правее самого объекта `dr12[3]` в левом навигационном меню CoppeliaSim:
+![script](https://user-images.githubusercontent.com/80912103/201997697-2ce732f3-31c5-481b-8316-2b31e106f30b.png)
+
+В начале скрипта подключается бибилотека `random.py` (она используется и в таком роботе) и объявляются глобальные переменные:
+```python
+#python
+include random  ## обратите внимание, что не "import", а "include" в Коппелии!
+
+## GLOBALS:
+robot, leftJointHandle, rightJointHandle, changeOrientationTime, graph, X, Y = 0, 0, 0, 0, 0, 0, 0
+proximitySensors = 0                        ## datchiki
+baseVelocity = 5                            ## skorost
+blockTime, Right90Time, flag = 0, 0, False  ## to do turns properly
+N = 4                                       ## robots amount
+```
+
+Далее идёт череда нескольких вспомогательных функций, которые поворачивают робота в разные стороны и определяют его ориентацию в пространстве:
+```python
+<...>
+
+## to correctly draw detected points on map!
+def orientation(Rxyz):
+    PI = math.pi
+    if (Rxyz > -PI/4) and (Rxyz <= PI/4):
+        return 'RIGHT'
+    elif (Rxyz > PI/4) and (Rxyz <= 3*PI/4):
+        return 'TOP'
+    elif ((Rxyz > 3*PI/4) and (Rxyz <= 5*PI/4)) or ((Rxyz < -3*PI/4) and (Rxyz >= -5*PI/4)):
+        return 'LEFT'
+    elif (Rxyz < -PI/4) and (Rxyz >= -3*PI/4):
+        return 'BOTTOM'
+
+<...>
+```
+
+После этого идёт функция инициализации всех параметров робота:
+```python
+##===========================================================
+## Initialize a robot and his position graphics:
+def init():
+    global robot, leftJointHandle, rightJointHandle, proximitySensors
+    robot = sim.getObject('.')
+    leftJointHandle = sim.getObject("./leftJoint_")
+    rightJointHandle = sim.getObject("./rightJoint_")
+    
+    proximitySensors = dict()
+    proximitySensors.update(front=sim.getObject('./Proximity_sensor', {'index': 0}))
+    proximitySensors.update(left=sim.getObject('./Proximity_sensor', {'index': 1}))
+    proximitySensors.update(right=sim.getObject('./Proximity_sensor', {'index': 2}))
+    
+    goAhead()
+    
+    ## Graph initialization:
+    global graph, X, Y
+    graph = sim.getObject('/Graph', {'index': 3})
+    X = sim.addGraphStream(graph, 'X coord', 'm')
+    Y = sim.addGraphStream(graph, 'Y coord', 'm')
+    sim.addGraphCurve(graph, 'XY Robot\'s Position', 2, [X,Y], [0,0], '')
+```
+
+В функции `init()` создаются ссылки на:
++ объект самого робота (переменная `robot`),
++ объекты левого и правого моторов (переменные `leftJointHandle` и `rightJointHandle`),
++ создаётся Python-словарь `dict proximitySensors` для трёх датчиков робота,
++ вызывается функция `goAhead()` движения робота вперёд,
++ в конце создаётся встроенный в симулятор **граф**, который будет показывать текущее местоположение робота на сцене (координаты `x` и `y`).
